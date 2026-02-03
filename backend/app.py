@@ -49,6 +49,17 @@ def create_app(config=None):
     if config is None:
         config = get_config()
     app.config.from_object(config)
+
+    # S'assurer que le dossier de la base SQLite existe (ex: instance/)
+    try:
+        uri = app.config.get('SQLALCHEMY_DATABASE_URI') or ''
+        if uri.startswith('sqlite:///'):
+            sqlite_path = uri.replace('sqlite:///', '', 1)
+            sqlite_dir = os.path.dirname(sqlite_path)
+            if sqlite_dir:
+                os.makedirs(sqlite_dir, exist_ok=True)
+    except Exception:
+        pass
     
     # Initialiser les extensions
     db.init_app(app)
