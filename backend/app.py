@@ -15,7 +15,8 @@ from flask_cors import CORS
 # Guard for Python versions incompatible with installed SQLAlchemy
 if sys.version_info >= (3, 12):
     # Avoid importing SQLAlchemy which may raise obscure errors under newer Python
-    raise SystemExit('Python >= 3.12 détecté — utilisez Python 3.11 pour exécuter Veille Stratégique. Voir backend/setup-python311.ps1 pour automatiser l\'installation.')
+    if not (os.getenv('RENDER') or os.getenv('RENDER_SERVICE_ID') or os.getenv('RENDER_EXTERNAL_URL')):
+        raise SystemExit('Python >= 3.12 détecté — utilisez Python 3.11 pour exécuter Veille Stratégique. Voir backend/setup-python311.ps1 pour automatiser l\'installation.')
 
 # Configuration
 from config import get_config
