@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veille Stratégique - Accueil</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- HEADER -->
+    <header>
+        <div class="header-container">
+            <a class="brand" href="/" aria-label="Accueil">
+                <img class="brand-logo" src="{{ BRAND_LOGO_URL }}" alt="{{ BRAND_SHORT_NAME }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                <span class="brand-logo-fallback" aria-hidden="true">{{ BRAND_SHORT_NAME }}</span>
+                <span class="brand-text">
+                    <span class="brand-name">{{ BRAND_NAME }}</span>
+                </span>
+            </a>
+            <nav>
+                <a href="/">Accueil</a>
+                <a href="/offres">Offres</a>
+                <a href="/scheduler">Scheduler</a>
+                <a href="/connexion">Connexion</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main>
+        <div class="container">
+            <div class="hero-card reveal">
+                <h1><span class="brand-title">Veille Stratégique</span></h1>
+                <p class="hero-subtitle">Plateforme intelligente de collecte et monitoring d'appels d'offre</p>
+            </div>
+
+            <!-- Statistiques -->
+            <section style="margin-bottom: var(--spacing-xl);">
+                <h2>Statistiques</h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--spacing-lg);">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 style="color: var(--primary-orange);">📊 Total Offres</h3>
+                        </div>
+                        <div class="card-body">
+                            <p id="total-offres" style="font-size: 2.5rem; color: var(--primary-orange); font-weight: bold;">-</p>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 style="color: var(--primary-blue);">🏢 Sources Actives</h3>
+                        </div>
+                        <div class="card-body">
+                            <p id="sources-actives" style="font-size: 2.5rem; color: var(--primary-blue); font-weight: bold;">-</p>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 style="color: var(--dark-black);">🤖 IA</h3>
+                        </div>
+                        <div class="card-body">
+                            <p id="ai-status" style="font-size: 1.05rem; color: var(--dark-black); font-weight: 700;">-</p>
+                            <p id="ai-model" style="font-size: 0.9rem; color: var(--text-muted);">&nbsp;</p>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 style="color: var(--dark-black);">⏱️ Scraping</h3>
+                        </div>
+                        <div class="card-body">
+                            <p id="scheduler-running" style="font-size: 1.05rem; color: var(--dark-black); font-weight: 700;">-</p>
+                            <p id="scheduler-last" style="font-size: 0.9rem; color: var(--text-muted);">Dernier: -</p>
+                            <p id="scheduler-next" style="font-size: 0.9rem; color: var(--text-muted);">Prochain: -</p>
+                            <div style="margin-top: 0.6rem; display:flex; gap: 0.5rem; flex-wrap: wrap;">
+                                <a href="/scheduler" class="btn btn-primary">Dashboard</a>
+                                <a href="/offres" class="btn btn-outline">Voir offres</a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </section>
+
+            <!-- Sources (plateformes) -->
+            <section style="margin-bottom: var(--spacing-xl);">
+                <h2>Tableau de veille stratégique: acteurs institutionnels et liens utiles</h2>
+                <div style="display:flex; justify-content:flex-end; margin-bottom: var(--spacing-md);">
+                    <button id="btn-scrape-all" class="btn btn-scrape btn-scrape-large">Lancer le scraping</button>
+                </div>
+                <div class="card">
+                    <div style="overflow:auto;">
+                        <table style="width:100%;">
+                            <thead>
+                                <tr>
+                                    <th>Catégorie</th>
+                                    <th>Structure / Organisation</th>
+                                    <th>Lien</th>
+                                </tr>
+                            </thead>
+                            <tbody id="acteurs-veille-body">
+                                <tr><td colspan="3">Chargement...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- À propos -->
+            <section style="margin-bottom: var(--spacing-xl);">
+                <h2>À propos</h2>
+                <div class="card">
+                    <p>
+                        <strong>Veille Stratégique</strong> est une plateforme intelligente de monitoring qui scrape 
+                        automatiquement les offres d'appels des principales sources :
+                    </p>
+                    <ul style="margin-top: var(--spacing-md); margin-left: var(--spacing-lg);">
+                        <li><strong>GIZ</strong> - Deutsche Gesellschaft für Internationale Zusammenarbeit</li>
+                        <li><strong>ENABEL</strong> - Agence belge de développement</li>
+                        <li><strong>Nations Unies</strong> - FAO, PAM, PNUD</li>
+                        <li><strong>Institutions Gouvernementales</strong> - MINADER, ANADER, FIRCA</li>
+                        <li><strong>EduCarrière</strong> - Plateforme d'emploi et formations</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Chaînes de valeur -->
+            <section style="margin-bottom: var(--spacing-xl);">
+                <h2>Chaînes de Valeur Suivies</h2>
+                <div class="card">
+                    <div style="display: flex; flex-wrap: wrap; gap: var(--spacing-md);">
+                        <span class="badge badge-primary">Anacarde</span>
+                        <span class="badge badge-primary">Cacao</span>
+                        <span class="badge badge-primary">Agroforesterie</span>
+                        <span class="badge badge-primary">Agriculture</span>
+                        <span class="badge badge-primary">Développement Rural</span>
+                        <span class="badge badge-primary">Environnement</span>
+                        <span class="badge badge-primary">Biodiversité</span>
+                        <span class="badge badge-primary">Changement Climatique</span>
+                        <span class="badge badge-primary">Foncier Rural</span>
+                        <span class="badge badge-primary">Entrepreneuriat</span>
+                        <span class="badge badge-primary">Autonomisation Femmes</span>
+                        <span class="badge badge-primary">Emploi des Jeunes</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CTA -->
+            <section style="text-align: center;">
+                <h2>Commencer</h2>
+                <p style="margin-bottom: var(--spacing-lg);">Explorez les offres disponibles ou connectez-vous pour accéder à l'administration</p>
+                <div style="display: flex; gap: var(--spacing-md); justify-content: center;">
+                    <a href="/offres" class="btn btn-primary">Voir toutes les offres</a>
+                    <a href="/connexion" class="btn btn-secondary">Se connecter</a>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>À propos</h4>
+                <div class="footer-brand">VEILLE STRATÉGIQUE</div>
+                <p>{{ BRAND_SHORT_NAME }} - Plateforme intelligente de collecte et monitoring d'appels d'offre.</p>
+            </div>
+            <div class="footer-section">
+                <h4>Liens Utiles</h4>
+                <a href="/">Accueil</a>
+                <a href="/offres">Offres</a>
+                <a href="{{ BRAND_WEBSITE }}" target="_blank" rel="noopener">{{ BRAND_WEBSITE }}</a>
+            </div>
+            <div class="footer-section">
+                <h4>Contact</h4>
+                <p>📧 {{ CONTACT_EMAIL }}</p>
+                <p>📞 {{ CONTACT_PHONE }}</p>
+                <p>📍 {{ CONTACT_ADDRESS }}</p>
+            </div>
+            <div class="footer-section">
+                <h4>Suivez-nous</h4>
+                <a href="#">Facebook</a>
+                <a href="#">Twitter</a>
+                <a href="#">LinkedIn</a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 {{ BRAND_NAME }}. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+    <script>
+        // Charger les statistiques
+        fetch('/api/stats')
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('total-offres').textContent = data.total_offres;
+                document.getElementById('sources-actives').textContent = (data && typeof data.sources_actives === 'number')
+                    ? data.sources_actives
+                    : (data.offres_par_source ? data.offres_par_source.length : '-');
+            });
+
+        fetch('/api/scheduler/status')
+            .then(r => r.json())
+            .then(data => {
+                const runningEl = document.getElementById('scheduler-running');
+                const lastEl = document.getElementById('scheduler-last');
+                const nextEl = document.getElementById('scheduler-next');
+                const jobs = (data && data.jobs) ? data.jobs : [];
+                const scrapingJob = jobs.find(j => j.id === 'scraping_global_1h') || jobs[0];
+
+                if (runningEl) runningEl.textContent = (data && data.actif) ? 'Actif' : 'Arrêté';
+
+                const fmt = (iso) => {
+                    if (!iso) return '-';
+                    const d = new Date(iso);
+                    if (isNaN(d.getTime())) return iso;
+                    return d.toLocaleString('fr-FR');
+                };
+
+                if (lastEl) lastEl.textContent = `Dernier: ${fmt(scrapingJob && scrapingJob.derniere_execution)}`;
+                if (nextEl) nextEl.textContent = `Prochain: ${fmt(scrapingJob && scrapingJob.prochaine_execution)}`;
+            })
+            .catch(() => {
+                const runningEl = document.getElementById('scheduler-running');
+                if (runningEl) runningEl.textContent = 'Statut indisponible';
+            });
+
+        fetch('/api/ai/status')
+            .then(r => r.json())
+            .then(data => {
+                const el = document.getElementById('ai-status');
+                const modelEl = document.getElementById('ai-model');
+                const enabled = !!(data && data.enabled);
+                const available = !!(data && data.available);
+                const model = (data && data.model) ? data.model : '-';
+
+                if (!enabled) {
+                    el.textContent = 'Désactivée';
+                } else if (!available) {
+                    el.textContent = 'Activée (indisponible)';
+                } else {
+                    el.textContent = 'Activée';
+                }
+                modelEl.textContent = `Modèle: ${model}`;
+            })
+            .catch(() => {
+                const el = document.getElementById('ai-status');
+                const modelEl = document.getElementById('ai-model');
+                if (el) el.textContent = 'Indisponible';
+                if (modelEl) modelEl.textContent = '';
+            });
+
+        // Charger le tableau des acteurs (liens utiles)
+        fetch('/api/acteurs-veille')
+            .then(r => r.json())
+            .then(data => {
+                const body = document.getElementById('acteurs-veille-body');
+                const acteurs = (data && data.acteurs) ? data.acteurs : [];
+                if (!acteurs.length) {
+                    body.innerHTML = '<tr><td colspan="3">Aucun acteur trouvé.</td></tr>';
+                    return;
+                }
+
+                body.innerHTML = acteurs.map(a => {
+                    const lien = (a.lien || '').trim();
+                    const lienHtml = lien ? `<a href="${lien}" target="_blank" rel="noopener">${lien}</a>` : '-';
+                    return `
+                        <tr>
+                            <td>${a.categorie || '-'}</td>
+                            <td><strong>${a.structure || '-'}</strong></td>
+                            <td>${lienHtml}</td>
+                        </tr>
+                    `;
+                }).join('');
+            })
+            .catch(() => {
+                const body = document.getElementById('acteurs-veille-body');
+                if (body) body.innerHTML = '<tr><td colspan="3">Erreur de chargement.</td></tr>';
+            });
+
+        document.getElementById('btn-scrape-all')?.addEventListener('click', async () => {
+            try {
+                await app.executerTousScrapers();
+            } catch (err) {
+                // Notification gérée dans executerTousScrapers
+            }
+        });
+    </script>
+</body>
+</html>

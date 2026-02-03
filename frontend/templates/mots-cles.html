@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mots-clés - Veille Stratégique</title>
+    <link rel="icon" href="{{ BRAND_LOGO_URL }}">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <a class="brand" href="/" aria-label="Accueil">
+                <img class="brand-logo" src="{{ BRAND_LOGO_URL }}" alt="{{ BRAND_SHORT_NAME }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                <span class="brand-logo-fallback" aria-hidden="true">{{ BRAND_SHORT_NAME }}</span>
+                <span class="brand-text">
+                    <span class="brand-name">{{ BRAND_NAME }}</span>
+                </span>
+            </a>
+            <nav>
+                <a href="/">Accueil</a>
+                <a href="/offres">Offres</a>
+                <a href="/mots-cles">Mots-clés</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <h1>Mots-clés</h1>
+            <div id="mots-cles-list"></div>
+            <div style="margin-top:1rem;">
+                <input id="nouveau-mot" placeholder="Nouveau mot-clé" />
+                <button id="btn-ajouter" class="btn btn-primary">Ajouter</button>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>À propos</h4>
+                <div class="footer-brand">VEILLE STRATÉGIQUE</div>
+                <p>{{ BRAND_SHORT_NAME }} - Plateforme intelligente de collecte et monitoring d'appels d'offre.</p>
+            </div>
+            <div class="footer-section">
+                <h4>Liens Utiles</h4>
+                <a href="/">Accueil</a>
+                <a href="/offres">Offres</a>
+                <a href="{{ BRAND_WEBSITE }}" target="_blank" rel="noopener">{{ BRAND_WEBSITE }}</a>
+            </div>
+            <div class="footer-section">
+                <h4>Contact</h4>
+                <p>📧 {{ CONTACT_EMAIL }}</p>
+                <p>📞 {{ CONTACT_PHONE }}</p>
+                <p>📍 {{ CONTACT_ADDRESS }}</p>
+            </div>
+            <div class="footer-section">
+                <h4>Suivez-nous</h4>
+                <a href="#">Facebook</a>
+                <a href="#">Twitter</a>
+                <a href="#">LinkedIn</a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 {{ BRAND_NAME }}</p>
+        </div>
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+    <script>
+        const vs = app;
+        const list = document.getElementById('mots-cles-list');
+
+        async function load(){
+            list.innerHTML = '<p>Chargement...</p>';
+            try{
+                const data = await vs.listerMotsCles();
+                const rows = data.items || [];
+                if(rows.length === 0) list.innerHTML = '<p>Aucun mot-clé.</p>';
+                else list.innerHTML = rows.map(r => `<div class="card" style="margin-bottom:0.5rem; padding:0.5rem;">${r.mot} <small style="color:var(--text-light);">(${r.categorie})</small></div>`).join('');
+            }catch(e){ list.innerHTML = '<p>Erreur.</p>'; }
+        }
+
+        document.getElementById('btn-ajouter').addEventListener('click', async () => {
+            const mot = document.getElementById('nouveau-mot').value;
+            if(!mot) return alert('Entrez un mot');
+            await vs.ajouterMotCle(mot, 'général');
+            document.getElementById('nouveau-mot').value = '';
+            load();
+        });
+
+        load();
+    </script>
+</body>
+</html>

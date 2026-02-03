@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scheduler - Veille Stratégique</title>
+    <link rel="icon" href="{{ BRAND_LOGO_URL }}">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <a class="brand" href="/" aria-label="Accueil">
+                <img class="brand-logo" src="{{ BRAND_LOGO_URL }}" alt="{{ BRAND_SHORT_NAME }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                <span class="brand-logo-fallback" aria-hidden="true">{{ BRAND_SHORT_NAME }}</span>
+                <span class="brand-text">
+                    <span class="brand-name">{{ BRAND_NAME }}</span>
+                </span>
+            </a>
+            <nav>
+                <a href="/">Accueil</a>
+                <a href="/offres">Offres</a>
+                <a href="/scheduler">Scheduler</a>
+                <a id="connexion-link" href="/connexion">Connexion</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <h1>Scheduler</h1>
+            <div id="ai-status" style="margin-bottom:0.75rem;"></div>
+            <div id="scheduler-status"></div>
+            <div id="last-runs" style="margin-top:0.5rem;"></div>
+            <div style="margin-top:1rem; display:flex; gap:0.5rem; align-items:center;">
+                <button id="btn-toggle" class="btn btn-primary">Démarrer</button>
+                <select id="select-scraper" style="flex:1;"></select>
+                <button id="btn-run" class="btn btn-primary">Exécuter</button>
+            </div>
+
+            <div id="jobs-list" style="margin-top:1rem;"></div>
+            <div id="logs" style="margin-top:1rem;"></div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>À propos</h4>
+                <div class="footer-brand">VEILLE STRATÉGIQUE</div>
+                <p>{{ BRAND_SHORT_NAME }} - Plateforme intelligente de collecte et monitoring d'appels d'offre.</p>
+            </div>
+            <div class="footer-section">
+                <h4>Liens Utiles</h4>
+                <a href="/">Accueil</a>
+                <a href="/offres">Offres</a>
+                <a href="{{ BRAND_WEBSITE }}" target="_blank" rel="noopener">{{ BRAND_WEBSITE }}</a>
+            </div>
+            <div class="footer-section">
+                <h4>Contact</h4>
+                <p> {{ CONTACT_EMAIL }}</p>
+                <p> {{ CONTACT_PHONE }}</p>
+                <p> {{ CONTACT_ADDRESS }}</p>
+            </div>
+            <div class="footer-section">
+                <h4>Suivez-nous</h4>
+                <a href="#">Facebook</a>
+                <a href="#">Twitter</a>
+                <a href="#">LinkedIn</a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 {{ BRAND_NAME }}</p>
+        </div>
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+    <script>
+        const vs = app;
+
+        function renderStatus(actif){
+            const el = document.getElementById('scheduler-status');
+            el.innerHTML = actif ? '<span class="badge badge-success">En cours</span>' : '<span class="badge badge-error">Arrêté</span>';
+            document.getElementById('btn-toggle').textContent = actif ? 'Arrêter' : 'Démarrer';
+            document.getElementById('btn-toggle').className = actif ? 'btn' : 'btn btn-primary';
+        }
+
+        async function load(){
+            try{
+                try {
+                    const ai = await vs.obtenirStatusAI();
+                    const enabled = !!(ai && ai.enabled);
+                    const available = !!(ai && ai.available);
+                    const model = (ai && ai.model) ? ai.model : '-';
+                    const aiel = document.getElementById('ai-status');
+                    if (aiel) {
+                        if (!enabled) aiel.innerHTML = '<span class="badge badge-error">IA: désactivée</span>';
+                        else if (!available) aiel.innerHTML = `<span class="badge badge-warning">IA: activée (indisponible)</span> <span class="platform-badge">${model}</span>`;
+                        else aiel.innerHTML = `<span class="badge badge-success">IA: activée</span> <span class="platform-badge">${model}</span>`;
+                    }
+                } catch (e) {
+                    const aiel = document.getElementById('ai-status');
+                    if (aiel) aiel.innerHTML = '<span class="badge badge-warning">IA: statut indisponible</span>';
+                }
+
+                const s = await vs.obtenirStatusScheduler();
+                renderStatus(s.actif);
+
+                // Jobs
+                const jobsContainer = document.getElementById('jobs-list');
+                const tz = (s && s.timezone) ? s.timezone : '';
+                const tzLine = tz ? `<div style="font-size:0.9rem;color:var(--text-muted); margin-bottom:0.5rem;">Timezone: ${tz}</div>` : '';
+                const formatDate = (iso) => {
+                    if (!iso) return '-';
+                    const d = new Date(iso);
+                    if (isNaN(d.getTime())) return iso;
+                    return d.toLocaleString('fr-FR');
+                };
+
+                const lastRunsEl = document.getElementById('last-runs');
+                if (lastRunsEl) {
+                    lastRunsEl.innerHTML = `
+                        <div style="font-size:0.95rem;color:var(--text-muted)">Dernier scraping: <strong style="color:var(--text);">${formatDate(s.dernier_scraping)}</strong></div>
+                        <div style="font-size:0.95rem;color:var(--text-muted)">Dernière purge: <strong style="color:var(--text);">${formatDate(s.derniere_purge)}</strong></div>
+                    `;
+                }
+                jobsContainer.innerHTML = tzLine + (s.jobs && s.jobs.length ? s.jobs.map(j => `
+                    <div class="card" style="margin-bottom:0.5rem;">
+                        <div class="card-body">
+                            <strong>${j.nom}</strong>
+                            <div style="font-size:0.9rem;color:var(--text-muted)">Dernière exécution: ${formatDate(j.derniere_execution)}</div>
+                            <div style="font-size:0.9rem;color:var(--text-muted)">Prochaine exécution: ${formatDate(j.prochaine_execution)}</div>
+                        </div>
+                    </div>`).join('') : '<p>Aucun job configuré.</p>');
+
+                // Scrapers list
+                const resp = await fetch('/api/sources');
+                const data = await resp.json();
+                const select = document.getElementById('select-scraper');
+                select.innerHTML = '';
+                data.sources.forEach(src => {
+                    const opt = document.createElement('option');
+                    opt.value = src.type_scraper || src.nom.toLowerCase();
+                    opt.textContent = `${src.nom} (${opt.value})`;
+                    select.appendChild(opt);
+                });
+
+                // Logs
+                const logsResp = await fetch('/api/logs-scraping');
+                const logsJson = await logsResp.json();
+                const logs = logsJson.logs || [];
+                const logsContainer = document.getElementById('logs');
+                if(logs.length === 0) logsContainer.innerHTML = '<p>Aucun log trouvé.</p>'; else {
+                    logsContainer.innerHTML = logs.map(l => `
+                        <div class="card" style="margin-bottom:0.5rem;">
+                            <div class="card-body">
+                                <strong>${l.source}</strong> • <span style="color:var(--text-muted);">${new Date(l.date_execution).toLocaleString('fr-FR')}</span>
+                                <div>Offres trouvées: ${l.nombre_offres_trouvees} • Nouvelles: ${l.nombre_offres_nouvelles} • Statut: ${l.statut}</div>
+                                ${l.message_erreur ? `<div class="alert alert-error">${l.message_erreur}</div>` : ''}
+                            </div>
+                        </div>`).join('');
+                }
+
+            }catch(err){
+                console.error('Erreur chargement scheduler:', err);
+                vs.showNotification('Impossible de charger le statut du scheduler (connexion requise pour certaines actions)', 'warning');
+            }
+        }
+
+        document.getElementById('btn-toggle').addEventListener('click', async ()=>{
+            try{
+                const s = await vs.obtenirStatusScheduler();
+                if(s.actif){
+                    await vs.apiRequest('/scheduler/stop', { method: 'POST' });
+                    vs.showNotification('Scheduler arrêté', 'success');
+                } else {
+                    await vs.apiRequest('/scheduler/start', { method: 'POST' });
+                    vs.showNotification('Scheduler démarré', 'success');
+                }
+                await load();
+            }catch(e){
+                vs.showNotification('Action refusée: connectez-vous en tant qu\'administrateur', 'warning');
+            }
+        });
+
+        document.getElementById('btn-run').addEventListener('click', async ()=>{ 
+            const key = document.getElementById('select-scraper').value; 
+            try{
+                await vs.executerScraper(key);
+                await load();
+            }catch(e){
+                // executerScraper montre la notification
+            }
+        });
+
+        // initial load
+        load();
+    </script>
+</body>
+</html>

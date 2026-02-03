@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offres - Veille Stratégique</title>
+    <link rel="icon" href="{{ BRAND_LOGO_URL }}">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <a class="brand" href="/" aria-label="Accueil">
+                <img class="brand-logo" src="{{ BRAND_LOGO_URL }}" alt="{{ BRAND_SHORT_NAME }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                <span class="brand-logo-fallback" aria-hidden="true">{{ BRAND_SHORT_NAME }}</span>
+                <span class="brand-text">
+                    <span class="brand-name">{{ BRAND_NAME }}</span>
+                </span>
+            </a>
+            <nav>
+                <a href="/">Accueil</a>
+                <a href="/offres">Offres</a>
+                <a href="/scheduler">Scheduler</a>
+                <a href="/connexion">Connexion</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <h1>Offres</h1>
+
+            <div class="badge badge-secondary" id="offres-total" style="margin-bottom:1rem;">Total: -</div>
+
+            <div style="display:flex; gap:1rem; margin-bottom:1rem; align-items:center;">
+                <input id="search-input" type="text" placeholder="Rechercher..." style="flex:1; padding:0.5rem;" />
+                <button id="btn-search" class="btn btn-primary">Rechercher</button>
+                <button id="btn-refresh" class="btn">Actualiser</button>
+            </div>
+
+            <div id="offres-list"></div>
+
+            <div id="pagination" style="margin-top:1rem; display:flex; gap:0.5rem; justify-content:center;"></div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>À propos</h4>
+                <div class="footer-brand">VEILLE STRATÉGIQUE</div>
+                <p>{{ BRAND_SHORT_NAME }} - Plateforme intelligente de collecte et monitoring d'appels d'offre.</p>
+            </div>
+            <div class="footer-section">
+                <h4>Liens Utiles</h4>
+                <a href="/">Accueil</a>
+                <a href="/offres">Offres</a>
+                <a href="{{ BRAND_WEBSITE }}" target="_blank" rel="noopener">{{ BRAND_WEBSITE }}</a>
+            </div>
+            <div class="footer-section">
+                <h4>Contact</h4>
+                <p> {{ CONTACT_EMAIL }}</p>
+                <p> {{ CONTACT_PHONE }}</p>
+                <p> {{ CONTACT_ADDRESS }}</p>
+            </div>
+            <div class="footer-section">
+                <h4>Suivez-nous</h4>
+                <a href="#">Facebook</a>
+                <a href="#">Twitter</a>
+                <a href="#">LinkedIn</a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 {{ BRAND_NAME }}</p>
+        </div>
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+    <script>
+        const vs = app; // instance from app.js
+        const container = document.getElementById('offres-list');
+        const pagination = document.getElementById('pagination');
+        const totalEl = document.getElementById('offres-total');
+        const searchInput = document.getElementById('search-input');
+        let currentPage = 1;
+
+        async function renderOffres(page=1, query=''){
+            try{
+                const data = await vs.withLoading('Chargement des offres...', async () => {
+                    if(query) return await vs.rechercher(query, page);
+                    return await vs.listerOffres(page);
+                });
+
+                if (totalEl) {
+                    totalEl.textContent = `Total: ${(data && typeof data.total === 'number') ? data.total : '-'}`;
+                }
+
+                const list = data.offres || [];
+                if(list.length === 0) container.innerHTML = '<p>Aucune offre trouvée.</p>';
+                else{
+                    container.innerHTML = list.map(o => `
+                        <div class="card reveal" style="margin-bottom:1rem;">
+                            <div class="card-header"><h3>${o.titre}</h3></div>
+                            <div class="card-body">
+                                <p><strong>Résumé:</strong> ${vs.truncate(o.description, 240)}</p>
+                                <p><strong>Lieu d'exécution:</strong> ${vs.detectLieuExecution(o)}</p>
+                                <p><strong>Date butoir:</strong> ${vs.formatDate(o.date_cloturation)} • <strong>Publication:</strong> ${vs.formatDate(o.date_publication)} • <strong>Source:</strong> ${o.source || '-'}</p>
+                                <a href="${o.url || '#'}" target="_blank" rel="noopener" class="btn btn-ghost" style="margin-right:0.5rem;">Ouvrir</a>
+                                <a href="/offres/${o.id}" class="btn btn-primary">Voir</a>
+                            </div>
+                        </div>
+                    `).join('');
+
+                    vs.revealElements(container);
+                }
+
+                // Pagination (simple)
+                pagination.innerHTML = '';
+                if(data.pages && data.pages > 1){
+                    for(let p=1;p<=data.pages;p++){
+                        const btn = document.createElement('button');
+                        btn.textContent = p;
+                        btn.className = p===page? 'btn btn-primary' : 'btn';
+                        btn.onclick = () => { currentPage = p; renderOffres(p, searchInput.value); };
+                        pagination.appendChild(btn);
+                    }
+                }
+
+            }catch(e){
+                container.innerHTML = '<p>Erreur lors du chargement.</p>';
+                console.error(e);
+            }
+        }
+
+        document.getElementById('btn-refresh').addEventListener('click', () => renderOffres(currentPage, searchInput.value));
+        document.getElementById('btn-search').addEventListener('click', () => { currentPage = 1; renderOffres(1, searchInput.value); });
+
+        const handleLiveSearch = vs.debounce(() => {
+            currentPage = 1;
+            renderOffres(1, searchInput.value);
+        }, 300);
+
+        searchInput.addEventListener('input', handleLiveSearch);
+
+        // Initial load
+        renderOffres(1);
+    </script>
+</body>
+</html>

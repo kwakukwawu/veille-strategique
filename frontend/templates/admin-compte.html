@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compte Admin - Veille Stratégique</title>
+    <link rel="icon" href="{{ BRAND_LOGO_URL }}">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <a class="brand" href="/" aria-label="Accueil">
+                <img class="brand-logo" src="{{ BRAND_LOGO_URL }}" alt="{{ BRAND_SHORT_NAME }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                <span class="brand-logo-fallback" aria-hidden="true">{{ BRAND_SHORT_NAME }}</span>
+                <span class="brand-text">
+                    <span class="brand-name">{{ BRAND_NAME }}</span>
+                </span>
+            </a>
+            <nav>
+                <a href="/">Accueil</a>
+                <a href="/offres">Offres</a>
+                <a href="/scheduler">Scheduler</a>
+                <a href="/connexion">Connexion</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <h1>Compte (Admin)</h1>
+
+            <div class="card" style="margin-bottom:1rem;">
+                <div class="card-header"><h3>Modifier les identifiants</h3></div>
+                <div class="card-body">
+                    <form id="form-compte">
+                        <div class="form-group">
+                            <label for="current_password">Mot de passe actuel</label>
+                            <input id="current_password" type="password" required />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="new_email">Nouvel email (optionnel)</label>
+                            <input id="new_email" type="email" placeholder="nouveau@email.com" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="new_password">Nouveau mot de passe (optionnel)</label>
+                            <input id="new_password" type="password" placeholder="min 6 caractères" />
+                        </div>
+
+                        <button class="btn btn-primary" type="submit">Enregistrer</button>
+                        <a href="/" class="btn" style="margin-left:0.5rem;">Retour</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>À propos</h4>
+                <div class="footer-brand">VEILLE STRATÉGIQUE</div>
+                <p>{{ BRAND_SHORT_NAME }} - Plateforme intelligente de collecte et monitoring d'appels d'offre.</p>
+            </div>
+            <div class="footer-section">
+                <h4>Liens Utiles</h4>
+                <a href="/">Accueil</a>
+                <a href="/offres">Offres</a>
+                <a href="{{ BRAND_WEBSITE }}" target="_blank" rel="noopener">{{ BRAND_WEBSITE }}</a>
+            </div>
+            <div class="footer-section">
+                <h4>Contact</h4>
+                <p>📧 {{ CONTACT_EMAIL }}</p>
+                <p>📞 {{ CONTACT_PHONE }}</p>
+                <p>📍 {{ CONTACT_ADDRESS }}</p>
+            </div>
+            <div class="footer-section">
+                <h4>Suivez-nous</h4>
+                <a href="#">Facebook</a>
+                <a href="#">Twitter</a>
+                <a href="#">LinkedIn</a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 {{ BRAND_NAME }}</p>
+        </div>
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+    <script>
+        const vs = app;
+
+        // Garde-fou: si pas admin -> redirige vers connexion
+        (async () => {
+            try {
+                const profil = await vs.authRequest('/profil', { method: 'GET' });
+                if (!profil || profil.role !== 'admin') throw new Error('not_admin');
+            } catch (e) {
+                window.location.href = '/';
+            }
+        })();
+
+        document.getElementById('form-compte').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const current_password = document.getElementById('current_password').value;
+                const new_email = document.getElementById('new_email').value;
+                const new_password = document.getElementById('new_password').value;
+
+                const payload = {
+                    current_password,
+                    new_email: (new_email || '').trim(),
+                    new_password: (new_password || '').trim()
+                };
+
+                const res = await vs.authRequest('/change-credentials', {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+
+                vs.showNotification('Compte mis à jour', 'success');
+                // Rafraîchir menu
+                await vs.initAuthUi();
+                document.getElementById('current_password').value = '';
+                document.getElementById('new_password').value = '';
+            } catch (err) {
+                vs.showNotification(err.message || 'Erreur mise à jour compte', 'error');
+            }
+        });
+    </script>
+</body>
+</html>
