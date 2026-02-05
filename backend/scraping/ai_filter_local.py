@@ -6,12 +6,17 @@ import requests
 class LocalAIFilter:
     def __init__(self):
         enabled_raw = os.getenv('LOCAL_AI_FILTER_ENABLED', '').strip()
-        # Auto-enable by default: if the env var is not explicitly set to 0/false,
-        # we consider the feature enabled and will rely on Ollama availability.
-        if enabled_raw in ('0', 'false', 'False'):
+        on_render = bool(os.getenv('RENDER') or os.getenv('RENDER_SERVICE_ID') or os.getenv('RENDER_EXTERNAL_URL'))
+
+        # Comportement:
+        # - En local/dev: auto-enable par défaut (comme avant)
+        # - Sur Render: désactivé par défaut (Ollama n'est généralement pas disponible)
+        if enabled_raw in ('1', 'true', 'True', 'yes', 'YES'):
+            self.enabled = True
+        elif enabled_raw in ('0', 'false', 'False', 'no', 'NO'):
             self.enabled = False
         else:
-            self.enabled = True
+            self.enabled = (not on_render)
         self.ollama_url = os.getenv('OLLAMA_URL', 'http://127.0.0.1:11434')
         self.model = os.getenv('OLLAMA_MODEL', 'llama3.1:8b')
         self.timeout = int(os.getenv('OLLAMA_TIMEOUT', '25'))

@@ -10,6 +10,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
 from datetime import datetime, timedelta, timezone
 import io
+import hashlib
 import re
 import time
 import unicodedata
@@ -19,6 +20,7 @@ from pypdf import PdfReader
 from requests.exceptions import RequestException
 import requests
 from sqlalchemy import or_
+from urllib.parse import urlparse
 
 from scraping.ai_filter_local import LocalAIFilter
 
@@ -41,6 +43,7 @@ class ScrapingScheduler:
         self.app = app
         self.scheduler = BackgroundScheduler(timezone='UTC')
         self._job_last_run = {}
+        self._last_links_sync_at = None
         self.ai_filter = LocalAIFilter()
         # Enregistrer les scrapers disponibles (clé = type_scraper)
         # GIZScraper importé paresseusement
@@ -147,6 +150,13 @@ class ScrapingScheduler:
             return {'error': 'app_not_initialized'}
 
         with self.app.app_context():
+            # Auto-sync des liens (acteurs + targets) vers la table `sources`.
+            # Objectif: que toutes les sources à scraper soient présentes en DB et actives.
+            try:
+                self._auto_sync_sources_links()
+            except Exception:
+                pass
+
             source_ids = [s.id for s in Source.query.filter_by(actif=True).all()]
 
             results = []
@@ -166,6 +176,95 @@ class ScrapingScheduler:
                 'total': len(results),
                 'results': results,
             }
+
+    def _auto_sync_sources_links(self):
+        """Synchroniser automatiquement les liens configurés vers la table `sources`.
+
+        Throttle: au plus une synchro toutes les 6h (en mémoire de process).
+        """
+        now = datetime.utcnow()
+        if self._last_links_sync_at is not None:
+            try:
+                if (now - self._last_links_sync_at) < timedelta(hours=6):
+                    return
+            except Exception:
+                pass
+
+        cfg = getattr(current_app, 'config', {})
+
+        def _is_http_url(u: str) -> bool:
+            if not u:
+                return False
+            try:
+                p = urlparse(u)
+                return p.scheme in ('http', 'https') and bool(p.netloc)
+            except Exception:
+                return False
+
+        def _make_source_name(structure: str, url: str) -> str:
+            structure = (structure or '').strip() or 'Source'
+            url = (url or '').strip()
+            try:
+                host = (urlparse(url).netloc or '').lower()
+            except Exception:
+                host = ''
+            digest = hashlib.sha1(url.encode('utf-8')).hexdigest()[:8]
+            base = f"{structure} | {host} | {digest}" if host else f"{structure} | {digest}"
+            return base[:100]
+
+        urls = []
+        acteurs = cfg.get('TABLEAU_VEILLE_ACTEURS', []) or []
+        for a in acteurs:
+            structure = (a or {}).get('structure')
+            lien = (a or {}).get('lien')
+            if structure and lien:
+                urls.append((structure, lien))
+
+        targets = cfg.get('STRUCTURES_SCRAPING_TARGETS', []) or []
+        for t in targets:
+            structure = (t or {}).get('structure') or (t or {}).get('nom')
+            for u in ((t or {}).get('urls_a_scraper') or []):
+                if structure and u:
+                    urls.append((structure, u))
+
+        seen = set()
+        dedup = []
+        for structure, u in urls:
+            key = (structure or '', (u or '').strip())
+            if key in seen:
+                continue
+            seen.add(key)
+            dedup.append((structure, (u or '').strip()))
+
+        changed_any = False
+        for structure, u in dedup:
+            if not _is_http_url(u):
+                continue
+            nom = _make_source_name(structure, u)
+            s = Source.query.filter_by(nom=nom).first()
+            if not s:
+                s = Source(nom=nom, url_base=u, type_scraper='structures', actif=True)
+                db.session.add(s)
+                changed_any = True
+                continue
+
+            changed = False
+            if (s.url_base or '') != (u or ''):
+                s.url_base = u
+                changed = True
+            if (s.type_scraper or '') != 'structures':
+                s.type_scraper = 'structures'
+                changed = True
+            if s.actif is not True:
+                s.actif = True
+                changed = True
+            if changed:
+                changed_any = True
+
+        if changed_any:
+            db.session.commit()
+
+        self._last_links_sync_at = now
 
     def executer_source(self, source_id: int):
         """Exécuter le scraping pour une Source (table `sources`)."""
@@ -480,11 +579,14 @@ class ScrapingScheduler:
             """Filtrage strict Option A (SinDev): CI + domaines + date butoir."""
             cfg = getattr(current_app, 'config', {})
             reasons = []
+            soft_reasons = []
 
             # 1) Date butoir obligatoire et à jour
             now = datetime.utcnow()
+            deadline_required = bool(cfg.get('SINDEV_DEADLINE_REQUIRED', False))
             if date_cloturation_dt is None:
-                reasons.append('missing_deadline')
+                if deadline_required:
+                    reasons.append('missing_deadline')
             elif date_cloturation_dt < now:
                 reasons.append('expired_deadline')
 
@@ -498,29 +600,47 @@ class ScrapingScheduler:
                     if t
                 ]
 
+                url_l = (offre_data.get('url') or '').lower()
+                source_l = _norm_text(offre_data.get('source') or '')
+
                 def _match_ci_term(term: str) -> bool:
                     # Tokens très courts => match en "mot" (évite les faux positifs)
                     if len(term) <= 3 and term.isalnum():
                         return re.search(r'(^|\W)' + re.escape(term) + r'(\W|$)', text) is not None
                     return term in text
 
-                if ci_terms and not any(_match_ci_term(t) for t in ci_terms):
+                url_suggests_ci = ('.ci' in url_l) or ('cotedivoire' in url_l) or ('cote-divoire' in url_l)
+                source_suggests_ci = ('ci' in source_l)
+                ci_soft_signals = ['abidjan', 'yamoussoukro', 'bouake', 'san pedro', 'sassandra', 'korhogo', 'man']
+                text_suggests_ci = any(s in text for s in ci_soft_signals)
+                if ci_terms and (not any(_match_ci_term(t) for t in ci_terms)) and (not url_suggests_ci) and (not source_suggests_ci) and (not text_suggests_ci):
                     reasons.append('not_ci')
 
             # 3) Domaines Sindev (si activé)
             if cfg.get('SINDEV_FOCUS_ENABLED', False):
                 focus_terms = [t.lower() for t in (cfg.get('SINDEV_FOCUS_TERMS') or [])]
                 if focus_terms and not any(t in text for t in focus_terms):
-                    reasons.append('not_sindev_domain')
+                    # Assouplissement: on ne rejette pas uniquement sur l'absence de termes focus.
+                    # On tag juste la raison pour analyse (visible dans les logs), mais on laisse passer.
+                    soft_reasons.append('not_sindev_domain')
 
             # 4) Contexte "appel d'offres / consultance" obligatoire (mode ultra-strict)
             if cfg.get('SINDEV_TENDER_CONTEXT_ENABLED', False):
-                tender_terms = [t.lower() for t in (cfg.get('SINDEV_TENDER_TERMS') or [])]
+                tender_terms_cfg = [t.lower() for t in (cfg.get('SINDEV_TENDER_TERMS') or [])]
+                tender_terms_default = [
+                    'appel d offres', "appel d'offres", 'dao', 'ami', 'aoi',
+                    'avis', 'avis d appel', "avis d'appel", 'consultation', 'marche', 'marché', 'marches',
+                    'soumission', 'soumissionner', 'offre', 'proposition',
+                    'tender', 'tender notice', 'bid', 'bidding', 'procurement',
+                    'request for proposal', 'rfp', 'request for quotation', 'rfq',
+                    'expression of interest', 'eoi',
+                ]
+                tender_terms = list(dict.fromkeys([t for t in (tender_terms_cfg + tender_terms_default) if t]))
                 if tender_terms and not any(t in text for t in tender_terms):
                     reasons.append('not_tender_context')
 
             keep = len(reasons) == 0
-            return keep, reasons
+            return keep, reasons + soft_reasons
 
         def _coerce_datetime(value):
             if value is None or value == '':
@@ -566,6 +686,8 @@ class ScrapingScheduler:
                 keep_strict, reasons = _strict_sindev_filter(offre_data, date_cloturation)
             except Exception as e:
                 keep_strict, reasons = True, [f'filter_error:{type(e).__name__}']
+
+            accept_tag = 'ACCEPT_SOFT' if ('not_sindev_domain' in (reasons or [])) else 'ACCEPT'
 
             if not keep_strict:
                 try:
@@ -645,7 +767,7 @@ class ScrapingScheduler:
 
                 try:
                     logger.info(
-                        f"[FILTER] ACCEPT url={offre_data.get('url','')} titre={str(offre_data.get('titre',''))[:120]}"
+                        f"[FILTER] {accept_tag} url={offre_data.get('url','')} reasons={','.join(reasons or [])} titre={str(offre_data.get('titre',''))[:120]}"
                     )
                 except Exception:
                     pass
@@ -668,6 +790,13 @@ class ScrapingScheduler:
 
                 if offre_data.get('mots_cles'):
                     offre_existante.mots_cles = offre_data.get('mots_cles', offre_existante.mots_cles)
+
+                try:
+                    logger.info(
+                        f"[FILTER] {accept_tag} url={offre_data.get('url','')} reasons={','.join(reasons or [])} titre={str(offre_data.get('titre',''))[:120]}"
+                    )
+                except Exception:
+                    pass
 
                 if date_publication is not None:
                     offre_existante.date_publication = date_publication
